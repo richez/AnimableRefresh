@@ -8,7 +8,7 @@
 
 import UIKit
 
-final class RefreshView: UIView {
+public final class RefreshView: UIView {
     // MARK: - Interface Properties
 
     /// The scrollView on which the `RefreshView` operate its actions
@@ -35,7 +35,7 @@ final class RefreshView: UIView {
     /// The pulling position at which the view should start the loading process.
     /// - Note: 1 by default (what appear to look best). A highter value will increase
     /// the amount of space the user has to pull down.
-    var pullingPositionBeforeLoad: CGFloat = 1
+    public var pullingPositionBeforeLoad: CGFloat = 1
 
     /// Define if the loading process should start before or after the user stopped pulling down.
     /// - Note: True by default (if set to false, the loading process will start once the user
@@ -45,6 +45,12 @@ final class RefreshView: UIView {
     var waitForDraggingToEnd: Bool = true
 
     var height: CGFloat = 60
+
+    /// Define if the animation of this `RefreshView` has finished
+    private(set) var loadingAnimationFinished: Bool = false
+
+    /// Define if the finished animation is waiting to be triggered
+    private(set) var isWaitingToEnd: Bool = false
 
     /// A Boolean value that determines whether the view is visible or not by checking
     /// if the top of the `scrollView` is back to its initial position
@@ -95,7 +101,7 @@ final class RefreshView: UIView {
 
     // MARK: - LifeCycle
 
-    override func layoutSubviews() {
+    override public func layoutSubviews() {
         super.layoutSubviews()
 
         guard let scrollView = self.scrollView else { return }
@@ -127,7 +133,7 @@ final class RefreshView: UIView {
 
     /// Tells the view that the refresh operation was started programmatically.
     func startRefresh() {
-        guard self.state == .inactive, let scrollView = scrollView else { return }
+        guard self.state == .inactive, let scrollView = self.scrollView else { return }
         let topInset = scrollView.safeAreaInsets.top
         let offsetY =  -self.frame.height - scrollViewDefaultInsets.top - topInset
         self.state = .loading
@@ -137,7 +143,14 @@ final class RefreshView: UIView {
     /// Tells the view that the refresh operation has ended.
     func endRefresh() {
         guard self.state == .loading else { return }
-        self.state = .finished
+        // if the `RefreshView` did not had time to be fully displayed before calling this method
+        // we wait for it to finish its appearing animation before ending it.
+        if self.loadingAnimationFinished {
+            self.isWaitingToEnd = false
+            self.state = .finished
+        } else {
+            self.isWaitingToEnd = true
+        }
     }
 
     // MARK: - ScrollView observations
@@ -223,6 +236,8 @@ final class RefreshView: UIView {
     /// so that the `RefreshView` is visible. It also animate the `animableView` and
     /// start the `action` completion.
     private func animateLoading() {
+        self.loadingAnimationFinished = false
+        print("Start loading")
         guard let scrollView = self.scrollView else { return }
         scrollView.contentOffset = previousScrollViewOffset
         scrollView.bounces = false
@@ -232,7 +247,12 @@ final class RefreshView: UIView {
             scrollView.contentInset.top = insetY
             scrollView.contentOffset = CGPoint(x: scrollView.contentOffset.x, y: -insetY)
         }) { (_) in
+            self.loadingAnimationFinished = true
+            print("Loading end")
             scrollView.bounces = true
+            if self.isWaitingToEnd {
+                self.animateFinished()
+            }
         }
         action?()
     }
@@ -240,6 +260,7 @@ final class RefreshView: UIView {
     /// This stops the `RefreshView` loading animation by positioning it back to its
     /// initial position. It also stop the `animableView` animation.
     private func animateFinished() {
+        print("Finished")
         guard let scrollView = self.scrollView else { return }
         self.removeScrollViewObserving()
         animableView.stopAnimating()

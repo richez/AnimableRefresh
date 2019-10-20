@@ -10,8 +10,8 @@ import UIKit
 
 extension UIScrollView {
     /// The custom `RefreshView` associated to the `scrollView`
-    /// - Note: You must call `addRefresh(custom:action:)` for this value to not be nil
-    var refreshView: RefreshView? {
+    /// - Note: You must call `addRefresh(custom:action:)` before using this value
+    public var refreshView: RefreshView? {
         return subviews.first { $0 is RefreshView } as? RefreshView
     }
 
